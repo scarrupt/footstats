@@ -2,7 +2,7 @@
   "name": "FootStats",
   "short_name": "FootStats",
   "description": "Football match stats tracker",
-  "start_url": "/",
+  "start_url": "/footstats",
   "display": "standalone",
   "background_color": "#0a1a0a",
   "theme_color": "#0a1a0a",
