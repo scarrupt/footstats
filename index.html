@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FootStats">
+  <meta name="theme-color" content="#0a1a0a">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/styles.css">
+  <title>FootStats</title>
+</head>
+<body>
+
+  <!-- ═══ HOME ═══ -->
+  <div id="view-home" class="view active">
+    <div class="header">
+      <div>
+        <div class="app-title">⚽ FootStats</div>
+        <div class="app-sub">Track · Rate · Improve</div>
+      </div>
+    </div>
+    <div class="content scrollable">
+      <button class="btn-primary btn-large" id="btn-new-match">New Match</button>
+      <div class="section-title" style="margin-top:24px">Recent Matches</div>
+      <div id="recent-list"></div>
+    </div>
+    <div class="footer-link">
+      <button class="btn-link" id="btn-history">View All History →</button>
+    </div>
+  </div>
+
+  <!-- ═══ SETUP ═══ -->
+  <div id="view-setup" class="view">
+    <div class="header with-back">
+      <button class="btn-back" data-back="home">←</button>
+      <span class="header-title">New Match</span>
+    </div>
+    <div class="content scrollable">
+      <div class="form-group">
+        <label>Opponent</label>
+        <input type="text" id="input-opponent" placeholder="Team name" autocomplete="off" autocorrect="off">
+      </div>
+      <div class="form-group">
+        <label>Match Type</label>
+        <div class="seg" id="seg-match-type">
+          <button class="seg-btn active" data-value="7v7">7 vs 7</button>
+          <button class="seg-btn" data-value="9v9">9 vs 9</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Number of Periods</label>
+        <div class="seg" id="seg-periods">
+          <button class="seg-btn" data-value="1">1</button>
+          <button class="seg-btn active" data-value="2">2</button>
+          <button class="seg-btn" data-value="3">3</button>
+          <button class="seg-btn" data-value="4">4</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Starting Position</label>
+        <div class="select-wrap">
+          <select id="select-position" class="form-select">
+            <option value="goalkeeper">Goalkeeper (GK)</option>
+            <option value="center-back" selected>Center Back (CB)</option>
+            <option value="full-back">Full Back (FB)</option>
+            <option value="wing-back">Wing Back (WB)</option>
+            <option value="def-mid">Defensive Mid (DM)</option>
+            <option value="midfielder">Central Mid (CM)</option>
+            <option value="att-mid">Attacking Mid (AM)</option>
+            <option value="winger">Winger (WG)</option>
+            <option value="striker">Striker (ST)</option>
+          </select>
+          <span class="select-arrow">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-btn">
+      <button class="btn-primary" id="btn-start-match">Start Match</button>
+    </div>
+  </div>
+
+  <!-- ═══ RECORDING ═══ -->
+  <div id="view-recording" class="view">
+    <div class="rec-header">
+      <div class="rec-header-left">
+        <span id="rec-period-label" class="rec-period">Period 1 / 2</span>
+        <button id="rec-pos-btn" class="rec-pos-btn">CB ▾</button>
+      </div>
+      <span id="rec-opponent" class="rec-opp">vs Opponent</span>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <button class="stat-btn touches" data-stat="touches">
+        <span class="stat-icon">⚽</span>
+        <span class="stat-name">Total Touches</span>
+        <span class="stat-count" id="count-touches">0</span>
+        <span class="stat-hint">hold to undo</span>
+      </button>
+      <div class="stat-row-2">
+        <button class="stat-btn passes" data-stat="forwardPasses">
+          <span class="stat-icon">↗</span>
+          <span class="stat-name">Forward Passes</span>
+          <span class="stat-count" id="count-forwardPasses">0</span>
+        </button>
+        <button class="stat-btn carries" data-stat="carries">
+          <span class="stat-icon">🏃</span>
+          <span class="stat-name">Ball Carries</span>
+          <span class="stat-count" id="count-carries">0</span>
+        </button>
+      </div>
+      <div class="stat-row-2">
+        <button class="stat-btn tackles" data-stat="tackles">
+          <span class="stat-icon">🛡</span>
+          <span class="stat-name">Tackles</span>
+          <span class="stat-count" id="count-tackles">0</span>
+        </button>
+        <button class="stat-btn midfield" data-stat="midfield">
+          <span class="stat-icon">⬆</span>
+          <span class="stat-name">Into Midfield</span>
+          <span class="stat-count" id="count-midfield">0</span>
+        </button>
+      </div>
+      <button class="stat-btn goal" data-stat="goals">
+        <span class="stat-icon">🌟</span>
+        <span class="stat-name">Goal!</span>
+        <span class="stat-count" id="count-goals">0</span>
+      </button>
+    </div>
+    <div class="rec-footer">
+      <div class="rec-footer-row">
+        <button class="btn-end-period" id="btn-end-period">End Period</button>
+        <button class="btn-sub" id="btn-sub">Sub</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PERIOD END ═══ -->
+  <div id="view-period-end" class="view">
+    <div class="header">
+      <span class="header-title" id="period-end-title">Period 1 Complete</span>
+    </div>
+    <div class="content scrollable" id="period-end-content"></div>
+    <div class="footer-btn">
+      <button class="btn-primary" id="btn-next-period">Continue</button>
+    </div>
+  </div>
+
+  <!-- ═══ MATCH END ═══ -->
+  <div id="view-match-end" class="view">
+    <div class="header">
+      <span class="header-title">Match Complete</span>
+    </div>
+    <div class="content scrollable" id="match-end-content"></div>
+    <div class="footer-btn">
+      <button class="btn-primary" id="btn-save-match">Save &amp; Return Home</button>
+    </div>
+  </div>
+
+  <!-- ═══ HISTORY ═══ -->
+  <div id="view-history" class="view">
+    <div class="header with-back">
+      <button class="btn-back" data-back="home">←</button>
+      <span class="header-title">Match History</span>
+    </div>
+    <div class="content scrollable" id="history-content"></div>
+  </div>
+
+  <!-- ═══ MATCH DETAIL ═══ -->
+  <div id="view-match-detail" class="view">
+    <div class="header with-back">
+      <button class="btn-back" data-back="history">←</button>
+      <span class="header-title" id="detail-title">Match Detail</span>
+    </div>
+    <div class="content scrollable" id="detail-content"></div>
+    <div class="footer-btn">
+      <button class="btn-danger" id="btn-delete-match">Delete Match</button>
+    </div>
+  </div>
+
+  <!-- ═══ POSITION PICKER ═══ -->
+  <div id="pos-picker" class="confirm-overlay hidden">
+    <div class="confirm-sheet">
+      <div class="confirm-msg">Change Position</div>
+      <div id="pos-options" class="pos-options"></div>
+      <button id="pos-cancel" class="confirm-btn cancel" style="margin-top:10px">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══ CONFIRM OVERLAY ═══ -->
+  <div id="confirm-overlay" class="confirm-overlay hidden">
+    <div class="confirm-sheet">
+      <div id="confirm-msg" class="confirm-msg"></div>
+      <div class="confirm-btns">
+        <button id="confirm-no" class="confirm-btn cancel">Cancel</button>
+        <button id="confirm-yes" class="confirm-btn ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
