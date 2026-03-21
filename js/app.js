@@ -454,6 +454,7 @@ function handleEndPeriod() {
 
 function showPeriodEnd() {
   const match = state.currentMatch;
+  upsertMatch(match); // save after every period so data survives any crash
   const lastPeriod = match.periods[match.periods.length - 1];
   const isLast = match.periods.length >= match.numPeriods;
   const bm = BENCHMARKS[match.matchType];
@@ -553,8 +554,8 @@ function showMatchEnd() {
       <div class="rating-sub">${rating.sub}</div>
     </div>`;
 
-  // Benchmark bars
-  const barRows = STATS.map(stat => {
+  // Benchmark bars (only rated stats, not goals)
+  const barRows = Object.keys(WEIGHTS).map(stat => {
     const m = STAT_META[stat];
     const det = rating.details[stat];
     const pct = Math.round(det.statScore * 100);
@@ -594,6 +595,59 @@ function handleSaveMatch() {
   state.currentMatch = null;
   renderHome();
   showView('home');
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════
+
+function exportCSV() {
+  const matches = loadMatches().filter(m => m.completed);
+  if (matches.length === 0) return;
+
+  const header = [
+    'Date', 'Time', 'Opponent', 'Format', 'Score',
+    'Period', 'Position', 'Substituted',
+    'Touches', 'Forward Passes', 'Ball Carries', 'Tackles', 'Into Midfield', 'Goals',
+    'Rating (stars)', 'Rating Label',
+  ].join(',');
+
+  const rows = [];
+  for (const m of matches) {
+    const dt = new Date(m.date);
+    const date = dt.toLocaleDateString('en-GB');
+    const time = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const score = m.scoreUs != null ? `${m.scoreUs}-${m.scoreThem}` : '';
+    const stars = m.rating?.stars ?? '';
+    const label = m.rating?.label ?? '';
+    for (const p of m.periods) {
+      rows.push([
+        date, time,
+        `"${(m.opponent || '').replace(/"/g, '""')}"`,
+        m.matchType,
+        score,
+        p.number,
+        p.position || '',
+        p.substituted ? 'yes' : 'no',
+        p.stats.touches, p.stats.forwardPasses, p.stats.carries,
+        p.stats.tackles, p.stats.midfield, p.stats.goals,
+        stars,
+        `"${label}"`,
+      ].join(','));
+    }
+  }
+
+  const csv = [header, ...rows].join('\n');
+  const file = new File([csv], 'footstats.csv', { type: 'text/csv' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: 'FootStats Export' });
+  } else {
+    // Fallback: copy CSV text to clipboard
+    navigator.clipboard.writeText(csv).then(() => {
+      alert('CSV copied to clipboard — paste it into Notes or Mail.');
+    });
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -764,6 +818,9 @@ function init() {
   document.getElementById('btn-end-period').addEventListener('click', handleEndPeriod);
   document.getElementById('rec-pos-btn').addEventListener('click', openPositionPicker);
   document.getElementById('btn-sub').addEventListener('click', handleSub);
+
+  // ── History ──────────────────────────────
+  document.getElementById('btn-export').addEventListener('click', exportCSV);
 
   // ── Match end ────────────────────────────
   document.getElementById('btn-save-match').addEventListener('click', handleSaveMatch);

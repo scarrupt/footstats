@@ -137,6 +137,18 @@ body {
 .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
 .btn-primary.btn-large { padding: 22px; font-size: 22px; }
 
+.btn-export {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
 .btn-link {
   background: none;
   border: none;
