@@ -231,11 +231,15 @@ function matchCardHtml(m) {
   const t = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const stars = m.rating ? starsHtml(m.rating.stars) : '–';
   const score = m.scoreUs != null ? ` · ${m.scoreUs}–${m.scoreThem}` : '';
+  const totalGoals = sumStats(m).goals;
+  const goalsTag = totalGoals > 0
+    ? `<span class="goals-tag">🌟 ${totalGoals} goal${totalGoals > 1 ? 's' : ''}</span>`
+    : '';
   return `
     <div class="match-card">
       <div class="match-card-info">
         <div class="match-card-opp">vs ${esc(m.opponent)}${score}</div>
-        <div class="match-card-meta">${d} · ${t} · ${m.matchType}</div>
+        <div class="match-card-meta">${d} · ${t} · ${m.matchType}${goalsTag ? ' · ' : ''}${goalsTag}</div>
       </div>
       <div class="match-card-stars stars">${stars}</div>
     </div>`;
@@ -728,6 +732,46 @@ function openDetail(match) {
 }
 
 // ══════════════════════════════════════════════
+//  TARGETS VIEW
+// ══════════════════════════════════════════════
+
+function showTargets() {
+  let html = '';
+
+  for (const [fmt, bm] of Object.entries(BENCHMARKS)) {
+    const rows = Object.keys(WEIGHTS).map(stat => {
+      const m = STAT_META[stat];
+      const weight = Math.round(WEIGHTS[stat] * 100);
+      return `
+        <div class="target-row">
+          <div class="target-row-left">
+            <span class="dot" style="background:${m.color}"></span>
+            <span>${m.emoji} ${m.label}</span>
+            <span class="target-weight">${weight}%</span>
+          </div>
+          <div class="target-row-right" style="color:${m.color}">${bm[stat].good}<span class="target-unit">/period</span></div>
+        </div>`;
+    }).join('');
+
+    html += `
+      <div class="card">
+        <div class="card-title">${fmt} — per period</div>
+        ${rows}
+        <div class="target-note">Hit all targets in a period → 5 stars</div>
+      </div>`;
+  }
+
+  html += `<div class="card" style="color:var(--muted);font-size:13px;line-height:1.6">
+    <div class="card-title">How it works</div>
+    Each stat is scored 0–100% of its target. Scores are multiplied by their weight and summed → star rating out of 5.
+    Forward passes, ball carries, and midfield runs count most.
+  </div>`;
+
+  document.getElementById('targets-content').innerHTML = html;
+  showView('targets');
+}
+
+// ══════════════════════════════════════════════
 //  POSITION PICKER
 // ══════════════════════════════════════════════
 
@@ -809,6 +853,7 @@ function init() {
   // ── Home ─────────────────────────────────
   document.getElementById('btn-new-match').addEventListener('click', initSetup);
   document.getElementById('btn-history').addEventListener('click', showHistory);
+  document.getElementById('btn-targets').addEventListener('click', showTargets);
 
   // ── Setup ────────────────────────────────
   document.getElementById('btn-start-match').addEventListener('click', handleStartMatch);

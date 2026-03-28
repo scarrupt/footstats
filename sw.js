@@ -1,5 +1,5 @@
 // Service Worker — caches all app assets for offline use
-const CACHE = 'footstats-v1';
+const CACHE = 'footstats-v2';
 
 const ASSETS = [
   '/',

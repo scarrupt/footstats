@@ -114,8 +114,48 @@ body {
 .footer-link {
   display: flex;
   justify-content: center;
+  gap: 16px;
   padding: 8px 20px 12px;
   flex-shrink: 0;
+}
+
+/* ── Targets view ── */
+.target-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.target-row:last-of-type { border-bottom: none; }
+.target-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.target-weight {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.07);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.target-row-right {
+  font-size: 22px;
+  font-weight: 700;
+}
+.target-unit {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.target-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 
 /* ══════════════════════════════════════
@@ -670,6 +710,7 @@ body {
 .match-card-info { flex: 1; }
 .match-card-opp  { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
 .match-card-meta { font-size: 13px; color: var(--muted); }
+.goals-tag { color: #fbbf24; font-weight: 600; }
 .match-card-stars { font-size: 20px; flex-shrink: 0; }
 
 /* Section title */
