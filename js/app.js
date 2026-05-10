@@ -78,6 +78,7 @@ const state = {
 // ══════════════════════════════════════════════
 
 const STORAGE_KEY = 'footstats_v1';
+const DRAFT_KEY   = 'footstats_draft';
 
 function loadMatches() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
@@ -97,6 +98,24 @@ function upsertMatch(match) {
 
 function removeMatch(id) {
   persistMatches(loadMatches().filter(m => m.id !== id));
+}
+
+// ── Draft: persist in-progress state across app restarts ──
+
+function saveDraft(view) {
+  if (!state.currentMatch) return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      match: state.currentMatch,
+      periodStats: state.currentPeriodStats,
+      position: state.currentPosition,
+      view,
+    }));
+  } catch (_) {}
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
 }
 
 // ══════════════════════════════════════════════
@@ -331,6 +350,27 @@ function startPeriod() {
   if (hint) hint.style.display = state.currentMatch.periods.length === 0 ? '' : 'none';
 
   acquireWakeLock();
+  saveDraft('recording');
+  showView('recording');
+}
+
+// Resume recording after app restart — restores counts without resetting stats
+function resumeRecording() {
+  const num = state.currentMatch.periods.length + 1;
+  const total = state.currentMatch.numPeriods;
+
+  document.getElementById('rec-period-label').textContent = `Period ${num} / ${total}`;
+  document.getElementById('rec-opponent').textContent = `vs ${state.currentMatch.opponent}`;
+  document.getElementById('rec-pos-btn').textContent = posShort(state.currentPosition) + ' ▾';
+
+  for (const stat of STATS) {
+    getCountEl(stat).textContent = state.currentPeriodStats[stat] || 0;
+  }
+
+  const hint = document.querySelector('.stat-btn.touches .stat-hint');
+  if (hint) hint.style.display = 'none';
+
+  acquireWakeLock();
   showView('recording');
 }
 
@@ -341,12 +381,14 @@ function getCountEl(stat) {
 function increment(stat) {
   state.currentPeriodStats[stat]++;
   animateCount(stat);
+  saveDraft('recording');
 }
 
 function decrement(stat) {
   if (state.currentPeriodStats[stat] <= 0) return;
   state.currentPeriodStats[stat]--;
   animateCount(stat);
+  saveDraft('recording');
   // Flash the button to signal "undo"
   const btn = document.querySelector(`.stat-btn[data-stat="${stat}"]`);
   btn.classList.add('dec-flash');
@@ -458,7 +500,8 @@ function handleEndPeriod() {
 
 function showPeriodEnd() {
   const match = state.currentMatch;
-  upsertMatch(match); // save after every period so data survives any crash
+  upsertMatch(match);
+  saveDraft('period-end');
   const lastPeriod = match.periods[match.periods.length - 1];
   const isLast = match.periods.length >= match.numPeriods;
   const bm = BENCHMARKS[match.matchType];
@@ -586,6 +629,7 @@ function showMatchEnd() {
   }
 
   document.getElementById('match-end-content').innerHTML = html;
+  saveDraft('match-end');
   showView('match-end');
 }
 
@@ -596,6 +640,7 @@ function handleSaveMatch() {
   state.currentMatch.scoreThem = them;
 
   upsertMatch(state.currentMatch);
+  clearDraft();
   state.currentMatch = null;
   renderHome();
   showView('home');
@@ -679,6 +724,8 @@ function showHistory() {
 
 function openDetail(match) {
   state.detailMatchId = match.id;
+  document.getElementById('detail-view-footer').classList.remove('hidden');
+  document.getElementById('detail-edit-footer').classList.add('hidden');
   const dt = new Date(match.date);
   const d = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const t = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -726,6 +773,11 @@ function openDetail(match) {
       renderHome();
       showHistory();
     });
+  };
+
+  document.getElementById('btn-edit-match').onclick = () => {
+    const m = loadMatches().find(m => m.id === state.detailMatchId);
+    if (m) openEdit(m);
   };
 
   showView('match-detail');
@@ -818,6 +870,162 @@ function esc(str) {
 }
 
 // ══════════════════════════════════════════════
+//  MATCH EDITING
+// ══════════════════════════════════════════════
+
+function periodEditHtml(p) {
+  const isSubstituted = !!p.substituted;
+
+  const posOptions = POSITIONS.map(pos =>
+    `<option value="${pos.value}"${p.position === pos.value ? ' selected' : ''}>${pos.short} — ${pos.label}</option>`
+  ).join('');
+
+  const statRows = STATS.map(stat => {
+    const m = STAT_META[stat];
+    return `
+      <div class="edit-stat-row">
+        <div class="edit-stat-label">
+          <span class="dot" style="background:${m.color}"></span>
+          ${m.emoji} ${m.label}
+        </div>
+        <input type="number" id="edit-p${p.number}-${stat}"
+               class="edit-stat-input" min="0" max="999"
+               value="${p.stats[stat] || 0}" inputmode="numeric">
+      </div>`;
+  }).join('');
+
+  const statsContent = `
+    <div class="edit-stat-row">
+      <div class="edit-stat-label">Position</div>
+      <select id="edit-pos-${p.number}" class="edit-pos-select">
+        ${posOptions}
+      </select>
+    </div>
+    ${statRows}`;
+
+  return `
+    <div class="card">
+      <div class="card-title">Period ${p.number}</div>
+      <div class="edit-sub-row">
+        <span class="edit-sub-row-label">Not playing (substituted)</span>
+        <input type="checkbox" class="edit-sub-toggle" id="edit-sub-${p.number}"
+               data-period="${p.number}"${isSubstituted ? ' checked' : ''}>
+      </div>
+      <div id="edit-period-stats-${p.number}"${isSubstituted ? ' style="display:none"' : ''}>
+        ${statsContent}
+      </div>
+    </div>`;
+}
+
+function openEdit(match) {
+  let html = `
+    <div class="card">
+      <div class="card-title">Final Score</div>
+      <div class="score-row">
+        <div class="score-team">
+          <div class="score-team-label">Us</div>
+          <input type="number" id="edit-score-us" class="score-input" min="0" max="99"
+                 value="${match.scoreUs ?? 0}" inputmode="numeric">
+        </div>
+        <div class="score-sep">:</div>
+        <div class="score-team">
+          <div class="score-team-label">${esc(match.opponent)}</div>
+          <input type="number" id="edit-score-them" class="score-input" min="0" max="99"
+                 value="${match.scoreThem ?? 0}" inputmode="numeric">
+        </div>
+      </div>
+    </div>`;
+
+  for (const p of match.periods) {
+    html += periodEditHtml(p);
+  }
+
+  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail-view-footer').classList.add('hidden');
+  document.getElementById('detail-edit-footer').classList.remove('hidden');
+
+  document.getElementById('btn-save-edit').onclick = () => saveEdit(match);
+  document.getElementById('btn-cancel-edit').onclick = () => {
+    document.getElementById('detail-view-footer').classList.remove('hidden');
+    document.getElementById('detail-edit-footer').classList.add('hidden');
+    openDetail(match);
+  };
+
+  document.querySelectorAll('.edit-sub-toggle').forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const statsDiv = document.getElementById(`edit-period-stats-${toggle.dataset.period}`);
+      statsDiv.style.display = toggle.checked ? 'none' : '';
+    });
+  });
+}
+
+function saveEdit(match) {
+  const updated = JSON.parse(JSON.stringify(match));
+
+  const us = parseInt(document.getElementById('edit-score-us')?.value);
+  const them = parseInt(document.getElementById('edit-score-them')?.value);
+  updated.scoreUs   = isNaN(us)   ? null : us;
+  updated.scoreThem = isNaN(them) ? null : them;
+
+  for (const p of updated.periods) {
+    const subEl = document.getElementById(`edit-sub-${p.number}`);
+    if (subEl) p.substituted = subEl.checked;
+
+    if (!p.substituted) {
+      for (const stat of STATS) {
+        const input = document.getElementById(`edit-p${p.number}-${stat}`);
+        if (input) p.stats[stat] = Math.max(0, parseInt(input.value) || 0);
+      }
+      const posEl = document.getElementById(`edit-pos-${p.number}`);
+      if (posEl) p.position = posEl.value;
+    } else {
+      p.stats = emptyStats();
+    }
+  }
+
+  if (updated.completed) updated.rating = calcRating(updated);
+
+  upsertMatch(updated);
+
+  document.getElementById('detail-view-footer').classList.remove('hidden');
+  document.getElementById('detail-edit-footer').classList.add('hidden');
+  openDetail(updated);
+}
+
+// ══════════════════════════════════════════════
+//  DRAFT RESUME
+// ══════════════════════════════════════════════
+
+function checkDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) { renderHome(); return; }
+
+    const draft = JSON.parse(raw);
+    if (!draft.match || draft.match.completed) {
+      clearDraft();
+      renderHome();
+      return;
+    }
+
+    state.currentMatch    = draft.match;
+    state.currentPeriodStats = draft.periodStats || emptyStats();
+    state.currentPosition = draft.position || 'center-back';
+
+    if (draft.view === 'period-end') {
+      showPeriodEnd();
+    } else if (draft.view === 'match-end') {
+      showMatchEnd();
+    } else {
+      resumeRecording();
+    }
+  } catch (_) {
+    clearDraft();
+    renderHome();
+  }
+}
+
+// ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
 
@@ -870,8 +1078,8 @@ function init() {
   // ── Match end ────────────────────────────
   document.getElementById('btn-save-match').addEventListener('click', handleSaveMatch);
 
-  // ── Render home ──────────────────────────
-  renderHome();
+  // ── Resume draft or show home ────────────
+  checkDraft();
 
   // ── Re-acquire wake lock after app comes back to foreground ──
   document.addEventListener('visibilitychange', () => {
